@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>For You</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #fef3f7 0%, #fce4ec 50%, #fce4ec 100%);
+            overflow: hidden;
+            touch-action: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* --- SCENE CONTAINERS --- */
+        .scene {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease, visibility 0.5s;
+            z-index: 10;
+        }
+        
+        .scene.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            display: flex !important; 
+        }
+
+        /* --- Sunflower --- */
+        .sunflower-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .flower-center {
+            width: 60px;
+            height: 60px;
+            background: #5d4037;
+            border-radius: 50%;
+            z-index: 10;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+        .petal {
+            position: absolute;
+            width: 40px;
+            height: 100px;
+            background: #fbc02d;
+            border-radius: 50% 50% 10% 10%;
+            transform-origin: bottom center;
+            bottom: 50%;
+            left: calc(50% - 20px);
+            z-index: 1;
+            transform: rotate(var(--r)) scale(0);
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+        .petal.grow { transform: rotate(var(--r)) scale(1); }
+
+        /* --- Envelope --- */
+        .envelope-container {
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            margin-top: 20px;
+        }
+        .envelope-container:hover { transform: scale(1.05); }
+        .envelope {
+            width: 280px;
+            height: 180px;
+            background: #ef4444;
+            position: relative;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: center;
+        }
+        .envelope:before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #dc2626;
+            clip-path: polygon(0 0, 50% 50%, 100% 0);
+            z-index: 20;
+            transform-origin: top;
+            transition: transform 0.5s ease;
+        }
+        .envelope.open:before { transform: rotateX(180deg); z-index: 0; }
+        .envelope-content {
+            position: absolute; bottom: 0; width: 90%; height: 90%;
+            background: white; z-index: 5;
+        }
+        .heart-seal {
+            position: absolute; top: 45%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: gold; font-size: 2rem; z-index: 25;
+            transition: opacity 0.3s;
+        }
+
+        /* --- Letter Modal --- */
+        #scene-letter {
+            z-index: 50; 
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+        }
+
+        .paper-piece {
+            position: absolute; width: 50%; height: 50%;
+            background: #fff; z-index: 10;
+            transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .piece-tl { top: 0; left: 0; transform: translate(-150%, -150%) rotate(-10deg); border-radius: 4px 0 0 0; }
+        .piece-tr { top: 0; right: 0; transform: translate(150%, -150%) rotate(10deg); border-radius: 0 4px 0 0; }
+        .piece-bl { bottom: 0; left: 0; transform: translate(-150%, 150%) rotate(10deg); border-radius: 0 0 0 4px; }
+        .piece-br { bottom: 0; right: 0; transform: translate(150%, 150%) rotate(-10deg); border-radius: 0 0 4px 0; }
+        .assembled .piece-tl, .assembled .piece-tr, .assembled .piece-bl, .assembled .piece-br { 
+            transform: translate(0, 0) rotate(0deg); 
+        }
+
+        .letter-paper {
+            background: linear-gradient(180deg, #fff0f5 0%, #ffe4ec 25%, #ffd1dc 50%, #ffc0d0 75%, #ffe4ec 100%);
+            font-family: 'Dancing Script', cursive;
+            line-height: 2.2;
+            font-size: 1.35rem;
+            color: #5a3d4d;
+            width: 100%; height: 100%; overflow-y: auto;
+            padding: 2.5rem 2rem;
+            letter-spacing: 0.5px;
+            position: relative;
+            box-shadow: inset 0 0 60px rgba(255, 182, 193, 0.3);
+        }
+        .letter-paper::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f48fb1' fill-opacity='0.2'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .reveal-btn {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            transition: transform 0.5s; z-index: 20; cursor: pointer;
+        }
+        .reveal-btn.show { transform: translate(-50%, -50%) scale(1); }
+        .pulse-heart { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+        /* --- Explosion & Spiral --- */
+        #scene-explosion {
+            z-index: 60;
+            pointer-events: none;
+        }
+        .explosion-img {
+            position: absolute;
+            left: 50%; top: 50%;
+            width: 120px; height: 160px;
+            object-fit: cover;
+            border: 3px solid white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transform: translate(-50%, -50%) scale(0);
+            transition: transform 1s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s;
+        }
+
+        /* --- Swipe Scene --- */
+        #scene-swipe {
+            z-index: 40;
+            background: #fdf2f8;
+            padding: 20px;
+            justify-content: space-between;
+            padding-top: 40px;
+            padding-bottom: 40px;
+        }
+
+        .card-container {
+            position: relative;
+            width: 300px;
+            height: 400px;
+            margin: 20px auto;
+        }
+        
+        .swipe-card {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            transform-origin: 50% 100%;
+            transition: transform 0.3s ease;
+            /* Hide cards that are deep in the stack to prevent visual mess */
+            opacity: 0; 
+            pointer-events: none;
+        }
+
+        /* Only top 3 cards are visible/interactive */
+        .swipe-card.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .swipe-card img {
+            width: 100%; height: 85%;
+            object-fit: cover; pointer-events: none;
+        }
+        
+        .card-footer {
+            height: 15%;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Dancing Script', cursive; font-size: 1.5rem;
+            background: #fff; border-top: 1px solid #eee;
+        }
+
+        .swipe-label {
+            position: absolute; top: 40px;
+            padding: 5px 20px; border: 4px solid;
+            border-radius: 8px; font-size: 2rem; font-weight: bold;
+            text-transform: uppercase; letter-spacing: 2px;
+            opacity: 0; transform: rotate(-15deg) scale(1);
+            z-index: 10;
+            transition: opacity 0.2s, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .label-cute { right: 40px; color: #ec4899; border-color: #ec4899; transform: rotate(15deg) scale(1); }
+        .label-funny { left: 40px; color: #f472b6; border-color: #f472b6; transform: rotate(-15deg) scale(1); }
+
+        /* --- Image Peek Modal --- */
+        #image-peek {
+            z-index: 100;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(8px);
+            cursor: pointer;
+        }
+        .peek-img {
+            max-width: 90vw;
+            max-height: 80vh;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            transform: scale(0.9);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .peek-img.show {
+            transform: scale(1);
+            opacity: 1;
+        }
+        .peek-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 2rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        #image-peek:hover .peek-close {
+            opacity: 0.7;
+        }
+
+        /* Stamp Animation State */
+        .swipe-card.stamped .label-cute,
+        .swipe-card.stamped .label-funny {
+            opacity: 1 !important;
+        }
+        .swipe-card.stamped .label-cute { transform: rotate(15deg) scale(1.3); }
+        .swipe-card.stamped .label-funny { transform: rotate(-15deg) scale(1.3); }
+
+    </style>
+</head>
+<body>
+
+    <!-- SCENE 1: Sunflower Loading -->
+    <div id="scene-loading" class="scene">
+        <div class="sunflower-container" id="sunflower">
+            <div class="flower-center"></div>
+        </div>
+        <div class="h-20 flex flex-col items-center justify-center mt-8">
+            <p id="loading-text" class="text-gray-600 text-lg animate-pulse font-bold">Gathering sunshine...</p>
+            <button id="start-btn" class="hidden mt-2 px-8 py-3 bg-yellow-400 hover:bg-yellow-500 text-white font-bold rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">
+                Click to Continue
+            </button>
+        </div>
+    </div>
+
+    <!-- SCENE 2: The Envelope -->
+    <div id="scene-envelope" class="scene hidden">
+        <h2 class="text-3xl font-bold text-gray-700 font-dancing mb-4">For My Valentine</h2>
+        <div class="envelope-container" onclick="openLetter()">
+            <div class="envelope" id="envelope-graphic">
+                <div class="heart-seal">❤️</div>
+                <div class="envelope-content"></div>
+            </div>
+        </div>
+        <p class="text-gray-500 text-sm mt-8 animate-bounce">Tap to open</p>
+    </div>
+
+    <!-- SCENE 3: The Letter -->
+    <div id="scene-letter" class="scene hidden">
+        <div class="relative w-full h-full flex items-center justify-center p-6">
+            
+            <!-- Assembly Layer -->
+            <div id="paper-assembly" class="absolute inset-0 w-full h-full pointer-events-none z-10">
+                <div class="paper-piece piece-tl" style="background: linear-gradient(135deg, #fff0f5, #ffe4ec);"></div>
+                <div class="paper-piece piece-tr" style="background: linear-gradient(135deg, #fff0f5, #ffe4ec);"></div>
+                <div class="paper-piece piece-bl" style="background: linear-gradient(135deg, #fff0f5, #ffe4ec);"></div>
+                <div class="paper-piece piece-br" style="background: linear-gradient(135deg, #fff0f5, #ffe4ec);"></div>
+            </div>
+
+            <!-- Reveal Button -->
+            <div id="reveal-heart-container" class="reveal-btn" onclick="revealMessage()">
+                <div class="text-6xl text-red-500 filter drop-shadow-lg pulse-heart">❤️</div>
+                <p class="text-black font-bold mt-2 text-sm shadow-black drop-shadow-md">Click Me</p>
+            </div>
+
+            <!-- Actual Letter -->
+            <div id="actual-letter" class="hidden w-full max-w-2xl h-full max-h-[85vh] rounded-2xl shadow-2xl bg-white flex flex-col overflow-hidden">
+                <!-- Decorative header -->
+                <div class="relative h-14 bg-gradient-to-r from-rose-400 via-pink-400 to-rose-400 flex items-center justify-center">
+                    <span class="text-white text-xl">💕</span>
+                </div>
+                
+                <!-- Letter Paper -->
+                <div class="letter-paper flex-1 overflow-y-auto">
+                    <!-- Header -->
+                    <div class="text-center mb-6">
+                        <h1 class="text-2xl font-bold text-rose-500 font-dancing">My Only Baby,</h1>
+                    </div>
+                    
+                    <!-- Letter content - More readable font -->
+                    <div class="space-y-5 text-justify">
+                        <p class="text-base leading-loose text-gray-700">
+                            This letter is made with all of my effort and love for youuu 💖
+                        </p>
+                        <p class="text-base leading-loose text-gray-700">
+                            Akala mo puro sysarch lang o cve, No nooo, ginagawan rin po kita ng code code ko poo kase part ka ng buhay ko at lagi kang priority ko.
+                        </p>
+                        <p class="text-base leading-loose text-gray-700">
+                            This is our 3rd Valentine's together and I'm happy that we're still together. I'm so grateful for you rin na habang tumatagal, nag ggrow ka pa rin and taking care of yourself.
+                            Don't worry mimiw, I'm always here to make you feel better kahit na alam natin napaka pangit ng schedule ko, I will always make time for you and make sure na kahit papaano, mapapasaya kita.
+                            And Kahit na hindi tumatama yung sched natin, We are still together and that's what matters. I love you so much, and I hope you have a wonderful Valentine's Day with Me! 💕                        
+                        </p>
+                    </div>
+                    
+                    <!-- Closing -->
+                    <div class="mt-8 text-right">
+                        <p class="text-xl font-bold text-rose-500 font-dancing">Happy Valentine's Day!</p>
+                        <p class="text-gray-400 mt-1 italic text-sm">Forever yours,</p>
+                        <p class="text-lg font-bold text-gray-600 font-dancing mt-1">- Your Favorite Reychipiee 💕</p>
+                    </div>
+                    
+                    <!-- Next Letter Button -->
+                    <div class="mt-6 text-center">
+                        <button onclick="showMonthsaryLetter()" class="inline-flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-rose-100 to-pink-100 hover:from-rose-200 hover:to-pink-200 text-rose-600 rounded-full font-dancing transition-all duration-300">
+                            There's more... <span>💕</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Close Button -->
+                <button onclick="triggerSpiralStack()" class="absolute top-4 right-4 w-8 h-8 bg-white/90 hover:bg-rose-500 text-gray-400 hover:text-white rounded-full flex items-center justify-center shadow-md z-50 transition-all duration-300">
+                    <i class="fas fa-times text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCENE 3B: Monthsary Letter -->
+    <div id="scene-monthsary" class="scene hidden">
+        <div class="relative w-full h-full flex items-center justify-center p-6">
+            <!-- Actual Monthsary Letter -->
+            <div id="monthsary-letter" class="hidden w-full max-w-2xl h-full max-h-[85vh] rounded-2xl shadow-2xl bg-white flex flex-col overflow-hidden">
+                <!-- Decorative header -->
+                <div class="relative h-14 bg-gradient-to-r from-purple-400 via-violet-400 to-purple-400 flex items-center justify-center">
+                    <span class="text-white text-xl">💜</span>
+                </div>
+                
+                <!-- Letter Paper -->
+                <div class="letter-paper flex-1 overflow-y-auto">
+                    <!-- Header -->
+                    <div class="text-center mb-6">
+                        <h1 class="text-2xl font-bold text-purple-600 font-dancing">27 Monthsary, My Love!</h1>
+                    </div>
+                    
+                    <!-- Monthsary content -->
+                    <div class="space-y-5 text-justify">
+                        <p class="text-base leading-loose text-gray-700">
+                            Happy 27 monthsary, baby! 🥳 27 months na tayong magkasama at its been so great na we reach the cute monthsary we hadd 27th monthsary on 27
+                        </p>
+                        <p class="text-base leading-loose text-gray-700">
+                            I just want to say thank you for being with me through all the ups and downs. Sa lahat ng moments natin, sa lahat ng tawanan, sa lahat ng pagod na mukha ko, at sa lahat ng hindi magagandang itsura ko, salamat sa pagtanggap mo sakin.
+                        </p>
+                        <p class="text-base leading-loose text-gray-700">
+                            Thank you for staying with me through everything. For tolerating my rants moments, my insecurities, at lahat ng hindi magagandang moments ko. Pero higit sa lahat, salamat sa pagmamahal mo na walang katapusang binibigay mo sakin.
+                        </p>
+                        <p class="text-base leading-loose text-gray-700">
+                            Here's to more months, more years, and more memories together. I love you more than words can express!
+                        </p>
+                    </div>
+                    
+                    <!-- Closing -->
+                    <div class="mt-8 text-right">
+                        <p class="text-xl font-bold text-purple-600 font-dancing">Always & Forever,</p>
+                        <p class="text-lg font-bold text-gray-600 font-dancing mt-1">- Your Reychii 💕</p>
+                    </div>
+                    
+                    <!-- Back Button -->
+                    <div class="mt-6 text-center">
+                        <button onclick="backToValentineLetter()" class="inline-flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-100 to-violet-100 hover:from-purple-200 hover:to-violet-200 text-purple-600 rounded-full font-dancing transition-all duration-300">
+                            <span>←</span> Back to Valentine's
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Close Button -->
+                <button onclick="triggerSpiralStack()" class="absolute top-4 right-4 w-8 h-8 bg-white/90 hover:bg-purple-500 text-gray-400 hover:text-white rounded-full flex items-center justify-center shadow-md z-50 transition-all duration-300">
+                    <i class="fas fa-times text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCENE 4: Explosion Container -->
+    <div id="scene-explosion" class="scene hidden pointer-events-none"></div>
+
+    <!-- SCENE 5: Swipe Cards -->
+    <div id="scene-swipe" class="scene hidden">
+        <div class="text-center mb-2">
+            <h2 class="text-4xl text-gray-700 font-dancing font-bold">Our Moments</h2>
+            <p class="text-gray-500 text-sm mt-1">Swipe Left (Cute) or Right (Funny)</p>
+        </div>
+        
+        <div class="card-container" id="card-stack">
+            <!-- Cards injected by JS -->
+        </div>
+
+        <div class="flex gap-10 mt-4">
+            <button onclick="simulateSwipe(-1)" class="w-16 h-16 rounded-full bg-white shadow-xl text-pink-500 text-2xl hover:scale-110 transition flex items-center justify-center border border-pink-100">
+                <i class="fas fa-heart"></i>
+            </button>
+            <button onclick="simulateSwipe(1)" class="w-16 h-16 rounded-full bg-white shadow-xl text-rose-500 text-2xl hover:scale-110 transition flex items-center justify-center border border-rose-100">
+                <i class="fas fa-laugh-squint"></i>
+            </button>
+        </div>
+        
+        <div id="end-message" class="hidden absolute inset-0 bg-[#fdf2f8] z-50 flex flex-col items-center justify-center">
+            <h1 class="text-5xl text-red-500 font-dancing font-bold mb-4">I Love You!</h1>
+            <p class="text-gray-600 mb-6">Thanks for going down memory lane with me.</p>
+            <button onclick="location.reload()" class="px-8 py-3 bg-red-500 text-white rounded-full font-bold shadow-lg hover:bg-red-600 transition">
+                Start Over
+            </button>
+        </div>
+    </div>
+
+    <!-- IMAGE PEEK MODAL -->
+    <div id="image-peek" class="scene hidden" onclick="closeImagePeek()">
+        <div class="peek-close"><i class="fas fa-times"></i></div>
+        <img id="peek-image" class="peek-img" src="" alt="Full size image" onclick="event.stopPropagation()">
+    </div>
+
+    <script>
+        /* ================================================================
+           IMAGE CONFIGURATION
+           Add your 50+ images here.
+        ================================================================ */
+        const myImages = [
+            '1.jpeg',
+            '2.jpg',
+            '3.jpg',
+            '4.jpg',
+            '5.jpg',
+            '6.jpg',
+            '7.jpg',
+            '8.jpg',
+            '9.jpg',
+            '10.jpg',
+            '11.jpg',
+            '12.jpg',
+            '13.jpg',
+            '14.jpg',
+            '15.jpg',
+            '16.jpg'
+        ];
+        
+        // Ensure we have enough images for the effect
+        const explosionImages = Array(5).fill(myImages).flat().slice(0, 50);
+
+        // --- Standard Logic ---
+        const sunflowerContainer = document.getElementById('sunflower');
+        const loadingText = document.getElementById('loading-text');
+        const startBtn = document.getElementById('start-btn');
+        const sceneLoading = document.getElementById('scene-loading');
+        const sceneEnvelope = document.getElementById('scene-envelope');
+        const sceneLetter = document.getElementById('scene-letter');
+        const sceneMonthsary = document.getElementById('scene-monthsary');
+        const sceneSwipe = document.getElementById('scene-swipe');
+        const sceneExplosion = document.getElementById('scene-explosion');
+
+        // Sunflower Build
+        function createSunflower() {
+            const numberOfPetals = 12;
+            const angleIncrement = 360 / numberOfPetals;
+            for (let i = 0; i < numberOfPetals; i++) {
+                const petal = document.createElement('div');
+                petal.classList.add('petal');
+                petal.style.setProperty('--r', `${i * angleIncrement}deg`);
+                sunflowerContainer.appendChild(petal);
+                setTimeout(() => {
+                    petal.classList.add('grow');
+                    if (i === numberOfPetals - 1) finishLoading();
+                }, i * 200);
+            }
+        }
+        function finishLoading() {
+            setTimeout(() => {
+                loadingText.innerText = "Ready for you!";
+                loadingText.classList.remove('animate-pulse');
+                startBtn.classList.remove('hidden');
+            }, 500);
+        }
+        window.onload = createSunflower;
+
+        // Transitions
+        startBtn.addEventListener('click', () => {
+            sceneLoading.classList.add('hidden');
+            sceneEnvelope.classList.remove('hidden');
+        });
+
+        function openLetter() {
+            const envelope = document.getElementById('envelope-graphic');
+            const heart = document.querySelector('.heart-seal');
+            envelope.classList.add('open');
+            heart.style.opacity = '0';
+            
+            setTimeout(() => {
+                sceneEnvelope.classList.add('hidden');
+                sceneLetter.classList.remove('hidden');
+                
+                // Assemble Paper
+                setTimeout(() => {
+                    document.getElementById('paper-assembly').classList.add('assembled');
+                    setTimeout(() => {
+                        document.getElementById('reveal-heart-container').classList.add('show');
+                    }, 1200);
+                }, 100);
+            }, 600);
+        }
+
+        function revealMessage() {
+            document.getElementById('reveal-heart-container').classList.remove('show');
+            document.getElementById('paper-assembly').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('actual-letter').classList.remove('hidden');
+            }, 300);
+        }
+
+        // --- MONTHSARY LETTER NAVIGATION ---
+        function showMonthsaryLetter() {
+            sceneLetter.classList.add('hidden');
+            sceneMonthsary.classList.remove('hidden');
+            document.getElementById('monthsary-letter').classList.remove('hidden');
+        }
+
+        function backToValentineLetter() {
+            sceneMonthsary.classList.add('hidden');
+            document.getElementById('monthsary-letter').classList.add('hidden');
+            sceneLetter.classList.remove('hidden');
+        }
+
+        // --- SPIRAL TO STACK ANIMATION ---
+        function triggerSpiralStack() {
+            sceneLetter.classList.add('hidden');
+            sceneMonthsary.classList.add('hidden');
+            sceneExplosion.classList.remove('hidden');
+            
+            const container = sceneExplosion;
+            
+            // 1. Create Images at Center
+            const imgElements = [];
+            explosionImages.forEach((src, i) => {
+                const img = document.createElement('img');
+                img.src = src;
+                img.classList.add('explosion-img');
+                container.appendChild(img);
+                imgElements.push(img);
+            });
+
+            // 2. Explode Outward
+            requestAnimationFrame(() => {
+                imgElements.forEach((img, i) => {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = 200 + Math.random() * 300;
+                    const x = Math.cos(angle) * dist;
+                    const y = Math.sin(angle) * dist;
+                    const rot = (Math.random() - 0.5) * 60;
+                    
+                    img.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) rotate(${rot}deg) scale(0.8)`;
+                    img.style.opacity = '1';
+                });
+            });
+
+            // 3. Spiral Inward to Stack
+            setTimeout(() => {
+                sceneSwipe.classList.remove('hidden');
+                initCards(); 
+                
+                imgElements.forEach((img, i) => {
+                    setTimeout(() => {
+                        img.style.transition = 'all 0.6s cubic-bezier(0.1, 0.7, 1.0, 0.1)'; 
+                        img.style.transform = `translate(-50%, -50%) rotate(0deg) scale(1)`;
+                        setTimeout(() => { img.style.opacity = '0'; }, 500);
+                    }, i * 30);
+                });
+                
+                setTimeout(() => {
+                    sceneExplosion.classList.add('hidden');
+                    container.innerHTML = '';
+                }, (imgElements.length * 30) + 1000);
+            }, 1200);
+        }
+
+        // --- SWIPE LOGIC ---
+        let cards = [];
+        let cardIndex = 0;
+        const cardStack = document.getElementById('card-stack');
+
+        function initCards() {
+            cardStack.innerHTML = '';
+            cards = [];
+            cardIndex = 0;
+            
+            // Use ALL images, no slicing
+            const imagesToSwipe = myImages; 
+            
+            imagesToSwipe.forEach((src, index) => {
+                const card = document.createElement('div');
+                card.classList.add('swipe-card');
+                // Reverse z-index so first item is on top
+                card.style.zIndex = imagesToSwipe.length - index;
+                
+                card.innerHTML = `
+                    <div class="swipe-label label-funny">FUNNY</div>
+                    <div class="swipe-label label-cute">CUTE</div>
+                    <img src="${src}" draggable="false">
+                    <div class="card-footer">
+                        <span>Moment #${index + 1}</span>
+                    </div>
+                `;
+                
+                cardStack.appendChild(card);
+                cards.push(card);
+            });
+            
+            updateCardVisuals();
+            enableSwipe();
+        }
+
+        // Updates visibility and scale of cards to create a "stack" effect
+        function updateCardVisuals() {
+            cards.forEach((card, i) => {
+                const offset = i - cardIndex;
+                if (offset < 0) {
+                    // Already swiped
+                    // Don't hide immediately if animating
+                    return;
+                }
+                
+                if (offset === 0) {
+                    // Top card
+                    card.classList.add('visible');
+                    card.style.opacity = '1';
+                    card.style.transform = 'scale(1) translateY(0)';
+                    card.style.pointerEvents = 'auto'; // Enable interaction
+                } else if (offset < 3) {
+                    // 2nd and 3rd card
+                    card.classList.add('visible');
+                    card.style.opacity = '1';
+                    card.style.transform = `scale(${1 - offset * 0.04}) translateY(${offset * 10}px)`;
+                    card.style.pointerEvents = 'none'; // Disable interaction
+                } else {
+                    // Hidden cards deep in stack
+                    card.classList.remove('visible');
+                    card.style.opacity = '0';
+                    card.style.transform = `scale(0.9) translateY(30px)`; // Park them behind
+                    card.style.pointerEvents = 'none';
+                }
+            });
+        }
+
+        function enableSwipe() {
+            if (cardIndex >= cards.length) {
+                document.getElementById('end-message').classList.remove('hidden');
+                return;
+            }
+
+            const currentCard = cards[cardIndex];
+            const funnyLabel = currentCard.querySelector('.label-funny');
+            const cuteLabel = currentCard.querySelector('.label-cute');
+
+            let isDragging = false;
+            let startX = 0;
+            let currentX = 0;
+
+            const onStart = (e) => {
+                if (cardIndex >= cards.length) return;
+                isDragging = true;
+                startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+                currentCard.style.transition = 'none'; 
+            };
+
+            const onMove = (e) => {
+                if (!isDragging) return;
+                e.preventDefault(); 
+                const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+                currentX = clientX - startX;
+                const rotate = currentX * 0.1;
+
+                currentCard.style.transform = `translateX(${currentX}px) rotate(${rotate}deg)`;
+
+                if (currentX > 50) {
+                    funnyLabel.style.opacity = Math.min(currentX / 150, 1);
+                    cuteLabel.style.opacity = 0;
+                } else if (currentX < -50) {
+                    cuteLabel.style.opacity = Math.min(Math.abs(currentX) / 150, 1);
+                    funnyLabel.style.opacity = 0;
+                } else {
+                    funnyLabel.style.opacity = 0;
+                    cuteLabel.style.opacity = 0;
+                }
+            };
+
+            const onEnd = () => {
+                if (!isDragging) return;
+                isDragging = false;
+                
+                const threshold = 100;
+
+                if (currentX > threshold) { // Right (Funny)
+                    performSwipe('right', currentCard);
+                } else if (currentX < -threshold) { // Left (Cute)
+                    performSwipe('left', currentCard);
+                } else { // Reset
+                    currentCard.style.transition = 'transform 0.3s ease'; 
+                    currentCard.style.transform = `translateX(0) rotate(0)`;
+                    funnyLabel.style.opacity = 0;
+                    cuteLabel.style.opacity = 0;
+                }
+                currentX = 0;
+            };
+
+            // Touch
+            currentCard.addEventListener('touchstart', onStart);
+            document.addEventListener('touchmove', onMove, { passive: false });
+            document.addEventListener('touchend', onEnd);
+            // Mouse
+            currentCard.addEventListener('mousedown', onStart);
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onEnd);
+        }
+
+        function performSwipe(direction, card) {
+            // 1. STAMP ANIMATION: Force label visibility and add pop class
+            card.classList.add('stamped');
+            
+            // 2. FLY OFF
+            const x = direction === 'right' ? 1000 : -1000;
+            const rotate = direction === 'right' ? 30 : -30;
+            
+            card.style.transition = 'transform 0.5s ease-in'; // Faster fly-off
+            card.style.transform = `translateX(${x}px) rotate(${rotate}deg)`;
+
+            // 3. ADVANCE
+            cardIndex++;
+            updateCardVisuals();
+            
+            // Re-attach listeners to NEW top card
+            if (cardIndex < cards.length) {
+                enableSwipe();
+            } else {
+                setTimeout(() => {
+                     document.getElementById('end-message').classList.remove('hidden');
+                }, 500);
+            }
+        }
+
+        function simulateSwipe(dir) {
+            if (cardIndex >= cards.length) return;
+            const currentCard = cards[cardIndex];
+            
+            // Add stamp manually for buttons
+            const label = dir === 1 ? currentCard.querySelector('.label-funny') : currentCard.querySelector('.label-cute');
+            if (label) {
+                label.style.opacity = 1; 
+                currentCard.classList.add('stamped');
+            }
+
+            performSwipe(dir === 1 ? 'right' : 'left', currentCard);
+        }
+
+        // --- IMAGE PEEK FUNCTIONALITY ---
+        const imagePeek = document.getElementById('image-peek');
+        const peekImage = document.getElementById('peek-image');
+
+        function openImagePeek(imgSrc) {
+            peekImage.src = imgSrc;
+            peekImage.classList.remove('show');
+            imagePeek.classList.remove('hidden');
+            
+            setTimeout(() => {
+                peekImage.classList.add('show');
+            }, 50);
+        }
+
+        function closeImagePeek() {
+            peekImage.classList.remove('show');
+            setTimeout(() => {
+                imagePeek.classList.add('hidden');
+                peekImage.src = '';
+            }, 300);
+        }
+
+        // Make card images clickable for peek functionality
+        function setupCardImageClick() {
+            cards.forEach((card, index) => {
+                const img = card.querySelector('img');
+                if (img) {
+                    img.style.cursor = 'pointer';
+                    img.onclick = (e) => {
+                        e.stopPropagation();
+                        openImagePeek(img.src);
+                    };
+                }
+            });
+        }
+
+        // Update initCards to include image click setup
+        const originalInitCards = initCards;
+        initCards = function() {
+            originalInitCards();
+            setupCardImageClick();
+        };
+
+    </script>
+</body>
+</html>
